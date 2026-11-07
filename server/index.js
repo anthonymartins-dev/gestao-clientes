@@ -1,53 +1,60 @@
+require('dotenv').config();
 const express = require('express');
+const { Pool } = require('pg');
 
 const app = express();
 app.use(express.json());
 
-let clientes = [
-  { id: 1, nome: 'Maria Silva', email: 'maria@email.com' },
-  { id: 2, nome: 'João Santos', email: 'joao@email.com' },
-];
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-app.get('/clientes', (req, res) => {
-  res.json(clientes);
+app.get('/clientes', async (req, res) => {
+  const resultado = await pool.query('SELECT * FROM clientes ORDER BY id');
+  res.json(resultado.rows);
 });
 
-app.post('/clientes', (req, res) => {
-  const novo = {
-    id: Date.now(),
-    nome: req.body.nome,
-    email: req.body.email,
-  };
+app.post('/clientes', async (req, res) => {
+  const { nome, email } = req.body;
 
-  clientes.push(novo);
-  res.status(201).json(novo);
+  try {
+    const resultado = await pool.query(
+      'INSERT INTO clientes (nome, email) VALUES ($1, $2) RETURNING *',
+      [nome, email]
+    );
+    res.status(201).json(resultado.rows[0]);
+  } catch (erro) {
+    if (erro.code === '23505') {
+      return res.status(409).json({ erro: 'Email já registado' });
+    }
+    res.status(500).json({ erro: 'Erro no servidor' });
+  }
 });
 
-app.put('/clientes/:id', (req, res) => {
-  const id = Number(req.params.id);
-  const cliente = clientes.find((c) => c.id === id);
+app.put('/clientes/:id', async (req, res) => {
+  const { nome, email } = req.body;
 
-  if (!cliente) {
+  const resultado = await pool.query(
+    'UPDATE clientes SET nome = $1, email = $2 WHERE id = $3 RETURNING *',
+    [nome, email, req.params.id]
+  );
+
+  if (resultado.rowCount === 0) {
     return res.status(404).json({ erro: 'Cliente não encontrado' });
   }
-
-  cliente.nome = req.body.nome;
-  cliente.email = req.body.email;
-  res.json(cliente);
+  res.json(resultado.rows[0]);
 });
 
-app.delete('/clientes/:id', (req, res) => {
-  const id = Number(req.params.id);
-  const existe = clientes.some((c) => c.id === id);
+app.delete('/clientes/:id', async (req, res) => {
+  const resultado = await pool.query('DELETE FROM clientes WHERE id = $1', [
+    req.params.id,
+  ]);
 
-  if (!existe) {
+  if (resultado.rowCount === 0) {
     return res.status(404).json({ erro: 'Cliente não encontrado' });
   }
-
-  clientes = clientes.filter((c) => c.id !== id);
   res.status(204).send();
 });
 
-app.listen(3001, () => {
-  console.log('Servidor a correr em http://localhost:3001');
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(`Servidor a correr em http://localhost:${PORT}`);
 });
