@@ -3,6 +3,8 @@
 Aplicação web para gerir contactos de clientes: criar, ver, pesquisar, editar e apagar.
 Projeto 1 de uma série de 6 ferramentas para pequenos negócios.
 
+![Captura de ecrã](docs/painel.png)
+
 ## Funcionalidades
 
 - CRUD completo de clientes (nome, email, telefone, empresa)
